@@ -77,7 +77,7 @@ isEmpty <- SparkR:::readInt(inputCon)
 
 if (isEmpty != 0) {
 
-  if (numPartitions == -1) {
+  if (numPartitions < 0) {
     if (isInputSerialized) {
       # Now read as many characters as described in funcLen
       data <- SparkR:::readDeserialize(inputCon)
@@ -148,14 +148,16 @@ if (isEmpty != 0) {
 finishTime <- currentTimeMillis()
 
 # Report timing
-SparkR:::writeInt(outputCon, SpecialLengths$TIMING_DATA)
-SparkR:::writeDouble(outputCon, bootTime)
-SparkR:::writeDouble(outputCon, initTime)
-SparkR:::writeDouble(outputCon, broadcastTime)
-SparkR:::writeDouble(outputCon, inputTime)
-SparkR:::writeDouble(outputCon, computeTime)
-SparkR:::writeDouble(outputCon, outputTime)
-SparkR:::writeDouble(outputCon, finishTime)
+if (numPartitions == -1) {
+  SparkR:::writeInt(outputCon, SpecialLengths$TIMING_DATA)
+  SparkR:::writeDouble(outputCon, bootTime)
+  SparkR:::writeDouble(outputCon, initTime)
+  SparkR:::writeDouble(outputCon, broadcastTime)
+  SparkR:::writeDouble(outputCon, inputTime)
+  SparkR:::writeDouble(outputCon, computeTime)
+  SparkR:::writeDouble(outputCon, outputTime)
+  SparkR:::writeDouble(outputCon, finishTime)
+}
 
 # End of output
 if (isOutputSerialized) {

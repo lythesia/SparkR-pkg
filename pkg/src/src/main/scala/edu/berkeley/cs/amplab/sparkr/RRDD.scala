@@ -312,7 +312,7 @@ private class StringRRDD[T: ClassTag](
     packageNames: Array[Byte],
     rLibDir: String,
     broadcastVars: Array[Object])
-  extends BaseRRDD[T, String](parent, -1, parentSerialized,
+  extends BaseRRDD[T, String](parent, -2, parentSerialized,
                            false, func, packageNames, rLibDir,
                            broadcastVars.map(x => x.asInstanceOf[Broadcast[Object]])) {
 
