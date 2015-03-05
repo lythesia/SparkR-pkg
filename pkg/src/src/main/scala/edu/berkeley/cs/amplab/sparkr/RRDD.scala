@@ -173,6 +173,9 @@ private abstract class BaseRRDD[T: ClassTag, U: ClassTag](
               dataOut.writeInt(elemArr.length)
               dataOut.write(elemArr, 0, elemArr.length)
             } else {
+              // write string(for StringRRDD)
+              val str = elem.asInstanceOf[String]
+              // logWarning("@stdthread: " + elem)
               printOut.println(elem)
             }
           }
@@ -191,7 +194,36 @@ private abstract class BaseRRDD[T: ClassTag, U: ClassTag](
 
   protected def openDataStream(input: InputStream): Closeable
 
+  // protected def readData(length: Int): U
+
   protected def read(): U
+  // protected def read(): U {
+  //   try {
+  //     val length = dataStream.readInt()
+
+  //     length match {
+  //       case length if length > 0 =>
+  //         // TODO
+  //         readData(length)
+  //       case SpecialLengths.TIMING_DATA =>
+  //         // Timing data from R worker
+  //         logger.bootTime = dataStream.readDouble().toLong
+  //         logger.initTime = dataStream.readDouble().toLong
+  //         logger.broadcastTime = dataStream.readDouble().toLong
+  //         logger.inputTime = dataStream.readDouble().toLong
+  //         logger.computeTime = dataStream.readDouble().toLong
+  //         logger.outputTime = dataStream.readDouble().toLong
+  //         logger.finishTime = dataStream.readDouble().toLong
+  //         logInfo(logger.reportTime)
+  //         read()
+  //       case _ => null  // End of input
+  //     } catch {
+  //       case eof: EOFException => {
+  //         throw new SparkException("R worker exited unexpectedly (cranshed)", eof)
+  //       }
+  //     }
+  //   }
+  // }
 }
 
 /**
@@ -217,6 +249,18 @@ private class PairwiseRRDD[T: ClassTag](
     dataStream
   }
 
+  // override protected def readData(length: Int): (Int, Array[Byte]) = {
+  //   length match {
+  //     case length if length == 2 =>
+  //       val hashedKey = dataStream.readInt()
+  //       val contentPairsLength = dataStream.readInt()
+  //       val contentPairs = new Array[Byte](contentPairsLength)
+  //       dataStream.read(contentPairs, 0, contentPairsLength)
+  //       (hashedKey, contentPairs)
+  //     case _ => null
+  //   }
+  // }
+
   override protected def read(): (Int, Array[Byte]) = {
     try {
       val length = dataStream.readInt()
@@ -228,6 +272,15 @@ private class PairwiseRRDD[T: ClassTag](
           val contentPairs = new Array[Byte](contentPairsLength)
           dataStream.read(contentPairs, 0, contentPairsLength)
           (hashedKey, contentPairs)
+        case SpecialLengths.TIMING_DATA =>
+          logger.bootTime = dataStream.readDouble().toLong
+          logger.initTime = dataStream.readDouble().toLong
+          logger.broadcastTime = dataStream.readDouble().toLong
+          logger.inputTime = dataStream.readDouble().toLong
+          logger.computeTime = dataStream.readDouble().toLong
+          logger.outputTime = dataStream.readDouble().toLong
+          logger.finishTime = dataStream.readDouble().toLong
+          read()
         case _ => null   // End of input
       }
     } catch {
@@ -236,7 +289,6 @@ private class PairwiseRRDD[T: ClassTag](
       }
     }
   }
-
   lazy val asJavaPairRDD : JavaPairRDD[Int, Array[Byte]] = JavaPairRDD.fromRDD(this)
 }
 
@@ -261,6 +313,12 @@ private class RRDD[T: ClassTag](
     dataStream
   }
 
+  // override protected def readData(length: Int): Array[Byte] = {
+  //   val obj = new Array[Byte](length)
+  //   dataStream.read(obj, 0, length)
+  //   obj
+  // }
+
   override protected def read(): Array[Byte] = {
     try {
       val length = dataStream.readInt()
@@ -279,7 +337,7 @@ private class RRDD[T: ClassTag](
           logger.computeTime = dataStream.readDouble().toLong
           logger.outputTime = dataStream.readDouble().toLong
           logger.finishTime = dataStream.readDouble().toLong
-          logInfo(logger.reportTime)
+          // logInfo(logger.reportTime)
           read()
         case _ => null
       }
@@ -289,7 +347,6 @@ private class RRDD[T: ClassTag](
       }
     }
   }
-
   lazy val asJavaRDD : JavaRDD[Array[Byte]] = JavaRDD.fromRDD(this)
 }
 
@@ -307,23 +364,52 @@ private class StringRRDD[T: ClassTag](
                            false, func, packageNames, rLibDir,
                            broadcastVars.map(x => x.asInstanceOf[Broadcast[Object]])) {
 
-  private var dataStream: BufferedReader = _
+
+  private var dataStream: DataInputStream = _
 
   override protected def openDataStream(input: InputStream) = {
-    dataStream = new BufferedReader(new InputStreamReader(input))
+    dataStream = new DataInputStream(input)
     dataStream
   }
+  // private var dataStream: BufferedReader = _
+
+  // override protected def openDataStream(input: InputStream) = {
+    // dataStream = new BufferedReader(new InputStreamReader(input))
+    // dataStream
+  // }
+
+  // override protected def readData(length: Int): String {
+  //   dataStream.readLine()
+  // }
 
   override protected def read(): String = {
     try {
-      dataStream.readLine()
+      val length = dataStream.readInt()
+      // logInfo("StringRRDD timing: length = %s".format(length))
+      length match {
+        case length if length > 0 =>
+          val asciiBytes = new Array[Byte](length)
+          dataStream.read(asciiBytes, 0, length)
+          val str = new String(asciiBytes.dropRight(1).map(_.toChar))
+          str
+        case SpecialLengths.TIMING_DATA =>
+          logger.bootTime = dataStream.readDouble().toLong
+          logger.initTime = dataStream.readDouble().toLong
+          logger.broadcastTime = dataStream.readDouble().toLong
+          logger.inputTime = dataStream.readDouble().toLong
+          logger.computeTime = dataStream.readDouble().toLong
+          logger.outputTime = dataStream.readDouble().toLong
+          logger.finishTime = dataStream.readDouble().toLong
+          read()
+        case _ => null
+      }
+      // dataStream.readLine()
     } catch {
       case e: IOException => {
         throw new SparkException("R worker exited unexpectedly (crashed)", e)
       }
     }
   }
-
   lazy val asJavaRDD : JavaRDD[String] = JavaRDD.fromRDD(this)
 }
 
