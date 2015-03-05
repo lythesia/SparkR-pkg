@@ -25,13 +25,13 @@ private abstract class BaseRRDD[T: ClassTag, U: ClassTag](
     rLibDir: String,
     broadcastVars: Array[Broadcast[Object]])
   extends RDD[U](parent) {
-  var startTime: Long = _
+  val logger: Logger = new Logger
   override def getPartitions = parent.partitions
 
   override def compute(split: Partition, context: TaskContext): Iterator[U] = {
 
     // Timing start
-    startTime = System.currentTimeMillis
+    logger.startTime = System.currentTimeMillis
 
     // The parent may be also an RRDD, so we should launch it first.
     val parentIterator = firstParent[T].iterator(split, context)
@@ -272,23 +272,14 @@ private class RRDD[T: ClassTag](
           obj
         case SpecialLengths.TIMING_DATA =>
           // Timing data from R worker
-          val bootTime: Long = dataStream.readDouble().toLong
-          val initTime: Long = dataStream.readDouble().toLong
-          val broadcastTime: Long = dataStream.readDouble().toLong
-          val inputTime: Long = dataStream.readDouble().toLong
-          val computeTime: Long = dataStream.readDouble().toLong
-          val outputTime: Long = dataStream.readDouble().toLong
-          val finishTime: Long = dataStream.readDouble().toLong
-          logInfo(("Times: boot = %s ms, init = %s ms, broadcast = %s ms, " +
-                           "read-input = %s ms, compute = %s ms, write-output = %s ms, " +
-                           "total = %s ms").format(
-            bootTime - startTime,
-            initTime - bootTime,
-            broadcastTime - initTime,
-            inputTime - broadcastTime,
-            computeTime - inputTime,
-            outputTime - computeTime,
-            finishTime - startTime))
+          logger.bootTime = dataStream.readDouble().toLong
+          logger.initTime = dataStream.readDouble().toLong
+          logger.broadcastTime = dataStream.readDouble().toLong
+          logger.inputTime = dataStream.readDouble().toLong
+          logger.computeTime = dataStream.readDouble().toLong
+          logger.outputTime = dataStream.readDouble().toLong
+          logger.finishTime = dataStream.readDouble().toLong
+          logInfo(logger.reportTime)
           read()
         case _ => null
       }
@@ -339,6 +330,30 @@ private class StringRRDD[T: ClassTag](
 private object SpecialLengths {
   val END_OF_STREAM = 0
   val TIMING_DATA   = -1
+}
+
+private class Logger extends Serializable {
+  var startTime: Long = _
+  var bootTime: Long = _
+  var initTime: Long = _
+  var broadcastTime: Long = _
+  var inputTime: Long = _
+  var computeTime: Long = _
+  var outputTime: Long = _
+  var finishTime: Long = _
+
+  def reportTime: String = {
+    ("Times: boot = %s ms, init = %s ms, broadcast = %s ms, " +
+      "read-input = %s ms, compute = %s ms, write-output = %s ms, " +
+      "total = %s ms").format(
+        bootTime - startTime,
+        initTime - bootTime,
+        broadcastTime - initTime,
+        inputTime - broadcastTime,
+        computeTime - inputTime,
+        outputTime - computeTime,
+        finishTime - startTime)
+  }
 }
 
 private class BufferedStreamThread(
