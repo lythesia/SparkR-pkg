@@ -25,9 +25,13 @@ private abstract class BaseRRDD[T: ClassTag, U: ClassTag](
     rLibDir: String,
     broadcastVars: Array[Broadcast[Object]])
   extends RDD[U](parent) {
+  var startTime: Long = _
   override def getPartitions = parent.partitions
 
   override def compute(split: Partition, context: TaskContext): Iterator[U] = {
+
+    // Timing start
+    startTime = System.currentTimeMillis
 
     // The parent may be also an RRDD, so we should launch it first.
     val parentIterator = firstParent[T].iterator(split, context)
@@ -266,6 +270,26 @@ private class RRDD[T: ClassTag](
           val obj = new Array[Byte](length)
           dataStream.read(obj, 0, length)
           obj
+        case SpecialLengths.TIMING_DATA =>
+          // Timing data from R worker
+          val bootTime: Long = dataStream.readDouble().toLong
+          val initTime: Long = dataStream.readDouble().toLong
+          val broadcastTime: Long = dataStream.readDouble().toLong
+          val inputTime: Long = dataStream.readDouble().toLong
+          val computeTime: Long = dataStream.readDouble().toLong
+          val outputTime: Long = dataStream.readDouble().toLong
+          val finishTime: Long = dataStream.readDouble().toLong
+          logInfo(("Times: boot = %s ms, init = %s ms, broadcast = %s ms, " +
+                           "read-input = %s ms, compute = %s ms, write-output = %s ms, " +
+                           "total = %s ms").format(
+            bootTime - startTime,
+            initTime - bootTime,
+            broadcastTime - initTime,
+            inputTime - broadcastTime,
+            computeTime - inputTime,
+            outputTime - computeTime,
+            finishTime - startTime))
+          read()
         case _ => null
       }
     } catch {
@@ -310,6 +334,11 @@ private class StringRRDD[T: ClassTag](
   }
 
   lazy val asJavaRDD : JavaRDD[String] = JavaRDD.fromRDD(this)
+}
+
+private object SpecialLengths {
+  val END_OF_STREAM = 0
+  val TIMING_DATA   = -1
 }
 
 private class BufferedStreamThread(
