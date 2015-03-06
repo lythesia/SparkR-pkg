@@ -96,11 +96,9 @@ if (isEmpty != 0) {
     } else {
       lapply(output,
              function(line) {
-               # cat(sprintf("-- @worker.R - see line: %s\n", line))
                # write lines one-by-one with flag
                SparkR:::writeString(outputCon, line)
              })
-      # SparkR:::writeStrings(outputCon, output)
     }
     # Timing output
     outputTime <- currentTimeMillis()
@@ -155,39 +153,16 @@ finishTime <- currentTimeMillis()
 
 # Report timing
 SparkR:::writeInt(outputCon, SpecialLengths$TIMING_DATA)
-# SparkR:::writeDouble(outputCon, bootTime)
-# SparkR:::writeDouble(outputCon, initTime)
-# SparkR:::writeDouble(outputCon, broadcastTime)
-# SparkR:::writeDouble(outputCon, inputTime)
-# SparkR:::writeDouble(outputCon, computeTime)
-# SparkR:::writeDouble(outputCon, outputTime)
-# SparkR:::writeDouble(outputCon, finishTime)
-tryCatch({
 SparkR:::writeDouble(outputCon, bootTime)
-}, error = function(err) cat(sprintf("(%d) -- err @ report boot\n", numPartitions)))
-tryCatch({
 SparkR:::writeDouble(outputCon, initTime)
-}, error = function(err) cat(sprintf("(%d) -- err @ report init\n", numPartitions)))
-tryCatch({
 SparkR:::writeDouble(outputCon, broadcastTime)
-}, error = function(err) cat(sprintf("(%d) -- err @ report broadcast\n", numPartitions)))
-tryCatch({
 SparkR:::writeDouble(outputCon, inputTime)
-}, error = function(err) cat(sprintf("(%d) -- err @ report input\n", numPartitions)))
-tryCatch({
 SparkR:::writeDouble(outputCon, computeTime)
-}, error = function(err) cat(sprintf("(%d) -- err @ report compute\n", numPartitions)))
-tryCatch({
 SparkR:::writeDouble(outputCon, outputTime)
-}, error = function(err) cat(sprintf("(%d) -- err @ report output\n", numPartitions)))
-tryCatch({
 SparkR:::writeDouble(outputCon, finishTime)
-}, error = function(err) cat(sprintf("(%d) -- err @ report finish\n", numPartitions)))
 
 # End of output
-# if (isOutputSerialized) {
-  SparkR:::writeInt(outputCon, SpecialLengths$END_OF_STERAM)
-# }
+SparkR:::writeInt(outputCon, SpecialLengths$END_OF_STERAM)
 
 close(outputCon)
 close(inputCon)
