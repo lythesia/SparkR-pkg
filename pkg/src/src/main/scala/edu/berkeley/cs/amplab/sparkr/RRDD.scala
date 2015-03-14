@@ -203,11 +203,11 @@ private abstract class BaseRRDD[T: ClassTag, U: ClassTag](
         case SpecialLengths.TIMING_DATA =>
           // Timing data from R worker
           logger.bootTime = dataStream.readDouble().toLong
-          logger.initTime = dataStream.readDouble().toLong
-          logger.broadcastTime = dataStream.readDouble().toLong
-          logger.inputTime = dataStream.readDouble().toLong
-          logger.computeTime = dataStream.readDouble().toLong
-          logger.outputTime = dataStream.readDouble().toLong
+          logger.init = dataStream.readDouble().toLong
+          logger.broadcast = dataStream.readDouble().toLong
+          logger.input = dataStream.readDouble().toLong
+          logger.compute = dataStream.readDouble().toLong
+          logger.output = dataStream.readDouble().toLong
           logger.finishTime = dataStream.readDouble().toLong
           logInfo(logger.reportTime)
           read()
@@ -315,11 +315,11 @@ private object SpecialLengths {
 private class Logger extends Serializable {
   var startTime: Long = _
   var bootTime: Long = _
-  var initTime: Long = _
-  var broadcastTime: Long = _
-  var inputTime: Long = _
-  var computeTime: Long = _
-  var outputTime: Long = _
+  var init: Long = _
+  var broadcast: Long = _
+  var input: Long = _
+  var compute: Long = _
+  var output: Long = _
   var finishTime: Long = _
 
   def reportTime: String = {
@@ -327,11 +327,11 @@ private class Logger extends Serializable {
       "read-input = %s ms, compute = %s ms, write-output = %s ms, " +
       "total = %s ms").format(
         bootTime - startTime,
-        initTime - bootTime,
-        broadcastTime - initTime,
-        inputTime - broadcastTime,
-        computeTime - inputTime,
-        outputTime - computeTime,
+        init,
+        broadcast,
+        input,
+        compute,
+        output,
         finishTime - startTime)
   }
 }
