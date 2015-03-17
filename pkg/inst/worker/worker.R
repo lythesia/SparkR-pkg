@@ -1,22 +1,21 @@
 # Worker class
 
-# Utility function to get current system time in milliseconds
-currentTimeMillis <- function() {
-  secs <- as.numeric(Sys.time())
-  millis <- as.numeric(proc.time()[3] %% 1)
-  (secs + millis) * 1000
+# Get current system time
+currentTimeSecs <- function() {
+  as.numeric(Sys.time())
 }
 
-elapsedMillis <- function() {
-  proc.time()[3] * 1000
+# Get elapsed time
+elapsedSecs <- function() {
+  proc.time()[3]
 }
 
 # Constants
 SpecialLengths <- list(END_OF_STERAM = 0L, TIMING_DATA = -1L)
 
 # Timing R process boot
-bootTime <- currentTimeMillis()
-bootElap <- elapsedMillis()
+bootTime <- currentTimeSecs()
+bootElap <- elapsedSecs()
 
 port <- as.integer(Sys.getenv("SPARKR_WORKER_PORT"))
 
@@ -53,7 +52,7 @@ env <- environment(computeFunc)
 parent.env(env) <- .GlobalEnv  # Attach under global environment.
 
 # Timing init envs for computing
-initElap <- elapsedMillis()
+initElap <- elapsedSecs()
 
 # Read and set broadcast variables
 numBroadcastVars <- SparkR:::readInt(inputCon)
@@ -66,7 +65,7 @@ if (numBroadcastVars > 0) {
 }
 
 # Timing broadcast
-broadcastElap <- elapsedMillis()
+broadcastElap <- elapsedSecs()
 
 # If -1: read as normal RDD; if >= 0, treat as pairwise RDD and treat the int
 # as number of partitions to create.
@@ -84,11 +83,11 @@ if (isEmpty != 0) {
       data <- readLines(inputCon)
     }
     # Timing reading input data for execution
-    inputElap <- elapsedMillis()
+    inputElap <- elapsedSecs()
 
     output <- computeFunc(splitIndex, data)
     # Timing computing
-    computeElap <- elapsedMillis()
+    computeElap <- elapsedSecs()
 
     if (isOutputSerialized) {
       SparkR:::writeRawSerialize(outputCon, output)
@@ -100,7 +99,7 @@ if (isEmpty != 0) {
              })
     }
     # Timing output
-    outputElap <- elapsedMillis()
+    outputElap <- elapsedSecs()
   } else {
     if (isInputSerialized) {
       # Now read as many characters as described in funcLen
@@ -109,7 +108,7 @@ if (isEmpty != 0) {
       data <- readLines(inputCon)
     }
     # Timing reading input data for execution
-    inputElap <- elapsedMillis()
+    inputElap <- elapsedSecs()
 
     res <- new.env()
 
@@ -128,7 +127,7 @@ if (isEmpty != 0) {
     }
     invisible(lapply(data, hashTupleToEnvir))
     # Timing computing
-    computeElap <- elapsedMillis()
+    computeElap <- elapsedSecs()
 
     # Step 2: write out all of the environment as key-value pairs.
     for (name in ls(res)) {
@@ -139,16 +138,13 @@ if (isEmpty != 0) {
       SparkR:::writeRawSerialize(outputCon, res[[name]]$data)
     }
     # Timing output
-    outputElap <- elapsedMillis()
+    outputElap <- elapsedSecs()
   }
 } else {
   inputElap <- broadcastElap
   computeElap <- broadcastElap
   outputElap <- broadcastElap
 }
-
-# Timing finish
-finishTime <- currentTimeMillis()
 
 # Report timing
 SparkR:::writeInt(outputCon, SpecialLengths$TIMING_DATA)
@@ -158,7 +154,6 @@ SparkR:::writeDouble(outputCon, broadcastElap - initElap)   # broadcast
 SparkR:::writeDouble(outputCon, inputElap - broadcastElap)  # input
 SparkR:::writeDouble(outputCon, computeElap - inputElap)    # compute
 SparkR:::writeDouble(outputCon, outputElap - computeElap)   # output
-SparkR:::writeDouble(outputCon, finishTime)
 
 # End of output
 SparkR:::writeInt(outputCon, SpecialLengths$END_OF_STERAM)
